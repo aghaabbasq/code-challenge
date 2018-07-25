@@ -36,29 +36,31 @@ class Loop {
 	}
 
 	DisplayScore( clear = false ) {
-		if( clear ) process.stdout.write(`\u001b[${ Object.keys( this.SCORE ).length + 1 }A\u001b[2K`);
+		if( this.ROUND % 20 !== 0) return;
+		if( clear ) process.stdout.write(`\u001b[${ Object.keys( this.SCORE ).length + 3 }A\u001b[2K`);
 
-		const done = String( Math.floor( this.ROUND/this.ROUNDS * 100 ) + 1 );
-		process.stdout.write(`\u001b[2K${ done.padEnd(3) }% done\n`);
+		const done = ((this.ROUND/this.ROUNDS) * 100).toFixed( 3 ).padStart(8);
+		process.stdout.write(`\u001b\n[2K${ done }% ${String(this.ROUND).padStart( 8 )} / ${String(this.ROUNDS)} games played\n\n`);
 
 		Object
 			.keys( this.SCORE )
 			.sort( ( a, b ) => this.SCORE[b] - this.SCORE[a] )
 			.forEach( player => {
 				const percentage = ( this.ROUND > 0 ) ? `${ ( ( this.WINNERS[ player ] * 100 ) / this.ROUND ).toFixed( 3 ) }%` : '-';
-				process.stdout.write(
-					`\u001b[2K${ Style.gray( percentage.padEnd(7) ) } ` +
-					`${ Style.red( String( this.SCORE[ player ].toFixed( 2 ) ).padEnd( Math.round( Math.log10( this.ROUNDS ) + 6 ) ) ) } ` +
-					`${ Style.yellow( player ) } got ${ Style.red( this.WINNERS[ player ] ) } wins\n`
-				);
+				const perc = `\u001b[2K${ Style.gray( percentage.padStart( 9 ) ) }`;
+				const score = `${ Style.red( String( this.SCORE[ player ].toFixed( 2 ) ).padStart( 11 ) ) } pts`;
+				const wins = `${ Style.red( String( this.WINNERS[ player ] ).padStart( 8 ) ) } wins`;
+				process.stdout.write(`${perc} ${score} ${wins}   ${Style.yellow( player )}\n`);
 			});
 	}
 
 	Play() {
-		this.DisplayScore( true );
+		this.ROUND ++;
+		this.LOG = '';
 
 		const game = new COUP();
 		const winners = game.Play(this.PLAYERNAMES);
+		this.GetScore( winners, game.PLAYERNAMES );
 
 		if( !winners || this.ERROR ) {
 			console.info( this.LOG );
@@ -66,21 +68,15 @@ class Loop {
 			this.ROUND = this.ROUNDS;
 		}
 
-		this.GetScore( winners, game.PLAYERNAMES );
-
-		this.ROUND ++;
-		this.LOG = '';
-
 		if( this.ROUND < this.ROUNDS ) {
 			// We run on next tick so the GC can get to work.
 			// Otherwise it will work up a large memory footprint
 			// when running over 100,000 games
 			// (cause loops won't let the GC run efficiently)
-			process.nextTick( () => this.Play() );
+			process.nextTick( () => this.Play());
 		}
-		else {
-			console.info();
-		}
+
+		this.DisplayScore( true );
 	}
 
 	Run() {
@@ -91,11 +87,8 @@ class Loop {
 				this.LOG += Style.red(`🛑  ${ text }\n`);
 			}
 		};
-		console.info(`\nGame round started`);
-		console.info('\n🎉   WINNERS  🎉\n');
 
 		this.DisplayScore( false );
-
 		this.Play();
 	}
 };
